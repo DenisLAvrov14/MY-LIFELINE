@@ -25,7 +25,7 @@ type Props = {
 const TaskDeck: React.FC<Props> = (props) => {
     const { task } = props;
     const dispatch = useDispatch();
-    const userId = 1; 
+    const userId = "00000000-0000-0000-0000-000000000001";
 
     const [isEdit, setIsEdit] = useState<boolean>(false);
     const [inputEdit, setInputEdit] = useState<string>(task.description);
@@ -56,7 +56,7 @@ const TaskDeck: React.FC<Props> = (props) => {
 
     const mutationSaveTime = useMutation({
         mutationFn: async ({ taskId, userId, startTime, endTime, duration }: 
-          { taskId: string, userId: number, startTime: Date, endTime: Date, duration: number }) => {
+          { taskId: string, userId: string, startTime: Date, endTime: Date, duration: number }) => {
             return await todosService.saveTaskTime(taskId, userId, startTime, endTime, duration);
         },
         onSuccess: () => {
@@ -110,24 +110,32 @@ const TaskDeck: React.FC<Props> = (props) => {
     };
           
     const handleStopAndMarkAsDone = async () => {
-        setIsTimerVisible(false);
-        setIsRunning(false);
-        const endTime = new Date();
-    
-        if (startTime) {
-            const duration = (endTime.getTime() - startTime.getTime()) / 1000;
+        try {
+          setIsRunning(false);
+          const endTime = new Date();
+          const duration = startTime
+            ? Math.round((endTime.getTime() - startTime.getTime()) / 1000) 
+            : 0;
+      
+          if (startTime) {
             await todosService.saveTaskTime(taskId, userId, startTime, endTime, duration);
+          }
+      
+          await todosService.taskIsDone(taskId);
+          alert("Task has been marked as done successfully!");
+        } catch (error) {
+          console.error("Error stopping and marking task as done:", error);
+          alert("Failed to stop timer and mark task as done. Please try again.");
         }
-    
-        await todosService.taskIsDone(taskId);
-    };
-    
+      };
+      
+   
     const handleReset = () => {
         setIsTimerVisible(false);
         setIsRunning(false);
         const endTime = new Date();
         if (startTime) {
-            const duration = (endTime.getTime() - startTime.getTime()) / 1000;
+            const duration = Math.floor((endTime.getTime() - startTime.getTime()) / 1000);
             saveTime(taskId, startTime, endTime, duration);
         }
         setTime(0);
@@ -167,7 +175,7 @@ const TaskDeck: React.FC<Props> = (props) => {
                 } catch (error) {
                     console.error("Error updating timer:", error);
                 }
-            }, 10000); 
+            }, 1000); 
         }
         return () => clearInterval(interval);
     }, [isRunning, startTime, taskId]);

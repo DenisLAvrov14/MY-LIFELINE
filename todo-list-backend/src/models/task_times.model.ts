@@ -1,39 +1,61 @@
-import { connection } from "../services/db.connection";
+import pool from "../services/db.connection";
 
+// Создание записи времени задачи
 export const createTaskTime = async (taskTime: {
   task_id: number;
   user_id: number;
   start_time: string;
-  end_time: string | null; // Позволяем null для end_time
+  end_time: string | null;
   duration: number;
 }) => {
   const { task_id, user_id, start_time, end_time, duration } = taskTime;
-  const [result] = await connection.query(
-    "INSERT INTO task_times (task_id, user_id, start_time, end_time, duration) VALUES (?, ?, ?, ?, ?)",
-    [task_id, user_id, start_time, end_time ?? null, duration] // Передаём null, если end_time пустой
-  );
-  return result;
+
+  const query = `
+    INSERT INTO task_times (task_id, user_id, start_time, end_time, duration)
+    VALUES ($1, $2, $3, $4, $5)
+    RETURNING *;
+  `;
+
+  const values = [task_id, user_id, start_time, end_time, duration];
+
+  const { rows } = await pool.query(query, values);
+  return rows[0];
 };
 
+// Обновление записи времени задачи
 export const updateTaskTime = async (taskTime: {
   id: number;
   task_id: number;
-  user_id: number; 
+  user_id: number;
   start_time: string;
   end_time: string;
   duration: number;
 }) => {
   const { id, task_id, user_id, start_time, end_time, duration } = taskTime;
-  await connection.query(
-    "UPDATE task_times SET task_id = ?, user_id = ?, start_time = ?, end_time = ?, duration = ? WHERE id = ?",
-    [task_id, user_id, start_time, end_time, duration, id]
-  );
+
+  const query = `
+    UPDATE task_times 
+    SET task_id = $1, user_id = $2, start_time = $3, end_time = $4, duration = $5
+    WHERE id = $6
+    RETURNING *;
+  `;
+
+  const values = [task_id, user_id, start_time, end_time, duration, id];
+
+  const { rows } = await pool.query(query, values);
+  return rows[0];
 };
 
+// Получение всех записей времени для определенного пользователя
 export const getTaskTimes = async (user_id: number) => {
-  const [rows] = await connection.query(
-    "SELECT * FROM task_times WHERE user_id = ?",
-    [user_id]
-  );
+  const query = `
+    SELECT * 
+    FROM task_times 
+    WHERE user_id = $1;
+  `;
+
+  const values = [user_id];
+
+  const { rows } = await pool.query(query, values);
   return rows;
 };

@@ -8,30 +8,38 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.markTaskAsDone = exports.deleteTask = exports.updateTask = exports.createTask = exports.getTasks = void 0;
-const db_connection_1 = require("../services/db.connection");
+const db_connection_1 = __importDefault(require("../services/db.connection"));
+// Получение всех задач
 const getTasks = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const [rows] = yield db_connection_1.connection.query("SELECT * FROM tasks");
-        res.json(rows);
+        const result = yield db_connection_1.default.query("SELECT * FROM tasks");
+        res.json(result.rows);
     }
     catch (error) {
+        console.error("Error fetching tasks:", error.message);
         res.status(500).send(error.message);
     }
 });
 exports.getTasks = getTasks;
+// Создание новой задачи
 const createTask = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { description, is_done } = req.body;
     try {
-        const [result] = yield db_connection_1.connection.query("INSERT INTO tasks (description, is_done) VALUES (?, ?)", [description, is_done]);
-        res.status(201).json({ id: result.insertId, description, is_done });
+        const result = yield db_connection_1.default.query("INSERT INTO tasks (description, is_done) VALUES ($1, $2) RETURNING *", [description, is_done]);
+        res.status(201).json(result.rows[0]);
     }
     catch (error) {
+        console.error("Error creating task:", error.message);
         res.status(500).send(error.message);
     }
 });
 exports.createTask = createTask;
+// Обновление задачи
 const updateTask = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
     const { description, is_done } = req.body;
@@ -39,35 +47,38 @@ const updateTask = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
     console.log(`New description: ${description}`);
     console.log(`New is_done status: ${is_done}`);
     try {
-        const [result] = yield db_connection_1.connection.query("UPDATE tasks SET description = ?, is_done = ? WHERE id = ?", [description, is_done, id]);
-        console.log(`Update result: `, result);
-        res.sendStatus(204);
+        const result = yield db_connection_1.default.query("UPDATE tasks SET description = $1, is_done = $2 WHERE id = $3 RETURNING *", [description, is_done, id]);
+        console.log(`Update result:`, result.rows[0]);
+        res.status(200).json(result.rows[0]);
     }
     catch (error) {
-        console.error('Error updating task:', error.message);
+        console.error("Error updating task:", error.message);
         res.status(500).send(error.message);
     }
 });
 exports.updateTask = updateTask;
+// Удаление задачи
 const deleteTask = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
     try {
-        yield db_connection_1.connection.query("DELETE FROM tasks WHERE id = ?", [id]);
+        yield db_connection_1.default.query("DELETE FROM tasks WHERE id = $1", [id]);
         res.sendStatus(204);
     }
     catch (error) {
+        console.error("Error deleting task:", error.message);
         res.status(500).send(error.message);
     }
 });
 exports.deleteTask = deleteTask;
-// Новая функция markTaskAsDone
+// Отметить задачу как выполненную
 const markTaskAsDone = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
     try {
-        yield db_connection_1.connection.query("UPDATE tasks SET is_done = ? WHERE id = ?", [true, id]);
-        res.status(200).json({ message: 'Task marked as done' });
+        const result = yield db_connection_1.default.query("UPDATE tasks SET is_done = true WHERE id = $1 RETURNING *", [id]);
+        res.status(200).json({ message: "Task marked as done", task: result.rows[0] });
     }
     catch (error) {
+        console.error("Error marking task as done:", error.message);
         res.status(500).send(`Error marking task as done: ${error.message}`);
     }
 });

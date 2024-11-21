@@ -19,13 +19,20 @@ const db_connection_1 = __importDefault(require("../services/db.connection"));
 const createTaskTimeController = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { task_id, user_id, start_time, end_time, duration } = req.body;
     console.log("Received data:", { task_id, user_id, start_time, end_time, duration });
-    if (!task_id || !user_id || !start_time || !end_time || (!duration && duration !== 0)) {
+    if (!task_id || !user_id || !start_time || (!duration && duration !== 0)) {
         return res.status(400).send("Invalid data: Missing required fields");
     }
-    const startTimeFormatted = new Date(start_time).toISOString().slice(0, 19).replace("T", " ");
-    const endTimeFormatted = new Date(end_time).toISOString().slice(0, 19).replace("T", " ");
     try {
-        yield (0, task_times_model_1.createTaskTime)({ task_id, user_id, start_time: startTimeFormatted, end_time: endTimeFormatted, duration });
+        const startTimeFormatted = new Date(start_time).toISOString();
+        const endTimeFormatted = end_time ? new Date(end_time).toISOString() : null;
+        const roundedDuration = Math.round(duration); // Округляем до целого числа
+        yield (0, task_times_model_1.createTaskTime)({
+            task_id,
+            user_id,
+            start_time: startTimeFormatted,
+            end_time: endTimeFormatted,
+            duration: roundedDuration,
+        });
         res.status(201).json({ message: "Task time created successfully" });
     }
     catch (error) {
@@ -37,13 +44,21 @@ exports.createTaskTimeController = createTaskTimeController;
 // Обновление записи времени выполнения задачи
 const updateTaskTimeController = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id, task_id, user_id, start_time, end_time, duration } = req.body;
-    const startTimeFormatted = new Date(start_time).toISOString().slice(0, 19).replace("T", " ");
-    const endTimeFormatted = new Date(end_time).toISOString().slice(0, 19).replace("T", " ");
     try {
-        yield (0, task_times_model_1.updateTaskTime)({ id, user_id, task_id, start_time: startTimeFormatted, end_time: endTimeFormatted, duration });
+        const startTimeFormatted = new Date(start_time).toISOString();
+        const endTimeFormatted = new Date(end_time).toISOString();
+        yield (0, task_times_model_1.updateTaskTime)({
+            id,
+            task_id,
+            user_id,
+            start_time: startTimeFormatted,
+            end_time: endTimeFormatted,
+            duration,
+        });
         res.status(200).json({ message: "Task time updated successfully" });
     }
     catch (error) {
+        console.error("Error updating task time:", error.message);
         res.status(500).send(`Error updating task time: ${error.message}`);
     }
 });
@@ -52,11 +67,12 @@ exports.updateTaskTimeController = updateTaskTimeController;
 const markTaskAsDone = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
     try {
-        yield db_connection_1.default.query("UPDATE tasks SET is_done = true WHERE id = ?", [id]);
+        yield db_connection_1.default.query("UPDATE tasks SET is_done = TRUE WHERE id = $1", [id]);
         res.sendStatus(204);
     }
     catch (error) {
-        res.status(500).send(error.message);
+        console.error("Error marking task as done:", error.message);
+        res.status(500).send(`Error marking task as done: ${error.message}`);
     }
 });
 exports.markTaskAsDone = markTaskAsDone;
@@ -64,12 +80,12 @@ exports.markTaskAsDone = markTaskAsDone;
 const deleteTask = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
     try {
-        yield db_connection_1.default.query("DELETE FROM task_times WHERE task_id = ?", [id]);
-        yield db_connection_1.default.query("DELETE FROM tasks WHERE id = ?", [id]);
+        yield db_connection_1.default.query("DELETE FROM task_times WHERE task_id = $1", [id]);
+        yield db_connection_1.default.query("DELETE FROM tasks WHERE id = $1", [id]);
         res.sendStatus(204);
     }
     catch (error) {
-        console.error("Error deleting task:", error);
+        console.error("Error deleting task:", error.message);
         res.status(500).send("Error deleting task");
     }
 });
@@ -78,7 +94,7 @@ exports.deleteTask = deleteTask;
 const getTimerStatus = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { taskId } = req.params;
     try {
-        const [rows] = yield db_connection_1.default.query("SELECT * FROM task_times WHERE task_id = ? ORDER BY start_time DESC LIMIT 1", [taskId]);
+        const { rows } = yield db_connection_1.default.query("SELECT * FROM task_times WHERE task_id = $1 ORDER BY start_time DESC LIMIT 1", [taskId]);
         if (rows.length === 0) {
             return res.status(404).json({ message: "No timer found for this task" });
         }
@@ -98,14 +114,11 @@ exports.getTimerStatus = getTimerStatus;
 // Запуск таймера
 const startTimerController = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { task_id, user_id, start_time } = req.body;
-    // Проверка на наличие всех обязательных параметров
     if (!task_id || !user_id || !start_time) {
         return res.status(400).send("Invalid data: Missing required fields");
     }
-    // Форматирование времени
-    const startTimeFormatted = new Date(start_time).toISOString().slice(0, 19).replace("T", " ");
     try {
-        // Передаём null для end_time
+        const startTimeFormatted = new Date(start_time).toISOString();
         yield (0, task_times_model_1.createTaskTime)({
             task_id,
             user_id,
@@ -128,7 +141,9 @@ const updateTimerController = (req, res) => __awaiter(void 0, void 0, void 0, fu
         return res.status(400).send("Invalid data: Missing required fields");
     }
     try {
-        yield db_connection_1.default.query("UPDATE task_times SET duration = ?, end_time = ? WHERE task_id = ? AND end_time IS NULL", [elapsed_time, is_running ? null : new Date().toISOString().slice(0, 19).replace("T", " "), task_id]);
+        const endTime = is_running ? null : new Date().toISOString();
+        const roundedElapsedTime = Math.round(elapsed_time); // Округляем до целого числа
+        yield db_connection_1.default.query("UPDATE task_times SET duration = $1, end_time = $2 WHERE task_id = $3 AND end_time IS NULL", [roundedElapsedTime, endTime, task_id]);
         res.status(200).json({ message: "Timer updated successfully" });
     }
     catch (error) {

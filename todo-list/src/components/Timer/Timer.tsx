@@ -44,7 +44,7 @@ const Timer: React.FC<TimerProps> = ({ taskId, onSaveTime }) => {
             const duration = time; // Используем текущее значение времени
             try {
                 // Отправляем запрос на сохранение времени
-                await todosService.saveTaskTime(taskId, 1, startTime, endTime, duration);
+                await todosService.saveTaskTime(taskId, "00000000-0000-0000-0000-000000000001", startTime, endTime, duration);
                 onSaveTime(taskId, duration); // Вызываем callback для обновления состояния
             } catch (error) {
                 console.error('Error saving task time:', error);

@@ -1,7 +1,10 @@
 import { Request, Response } from "express";
-import { createTaskTime as createTaskTimeModel, updateTaskTime as updateTaskTimeModel, getTaskTimes as getTaskTimesModel, createTaskTime } from "../models/task_times.model";
-import connection from "../services/db.connection";
-import { RowDataPacket } from "mysql2";
+import {
+  createTaskTime as createTaskTimeModel,
+  updateTaskTime as updateTaskTimeModel,
+  getTaskTimes as getTaskTimesModel,
+} from "../models/task_times.model";
+import pool from "../services/db.connection";
 
 // Создание записи времени выполнения задачи
 export const createTaskTimeController = async (req: Request, res: Response) => {
@@ -9,15 +12,23 @@ export const createTaskTimeController = async (req: Request, res: Response) => {
 
   console.log("Received data:", { task_id, user_id, start_time, end_time, duration });
 
-  if (!task_id || !user_id || !start_time || !end_time || (!duration && duration !== 0)) {
+  if (!task_id || !user_id || !start_time || (!duration && duration !== 0)) {
     return res.status(400).send("Invalid data: Missing required fields");
   }
 
-  const startTimeFormatted = new Date(start_time).toISOString().slice(0, 19).replace("T", " ");
-  const endTimeFormatted = new Date(end_time).toISOString().slice(0, 19).replace("T", " ");
-
   try {
-    await createTaskTimeModel({ task_id, user_id, start_time: startTimeFormatted, end_time: endTimeFormatted, duration });
+    const startTimeFormatted = new Date(start_time).toISOString();
+    const endTimeFormatted = end_time ? new Date(end_time).toISOString() : null;
+    const roundedDuration = Math.round(duration); // Округляем до целого числа
+
+    await createTaskTimeModel({
+      task_id,
+      user_id,
+      start_time: startTimeFormatted,
+      end_time: endTimeFormatted,
+      duration: roundedDuration,
+    });
+
     res.status(201).json({ message: "Task time created successfully" });
   } catch (error: any) {
     console.error("Error creating task time:", error.message);
@@ -29,13 +40,22 @@ export const createTaskTimeController = async (req: Request, res: Response) => {
 export const updateTaskTimeController = async (req: Request, res: Response) => {
   const { id, task_id, user_id, start_time, end_time, duration } = req.body;
 
-  const startTimeFormatted = new Date(start_time).toISOString().slice(0, 19).replace("T", " ");
-  const endTimeFormatted = new Date(end_time).toISOString().slice(0, 19).replace("T", " ");
-
   try {
-    await updateTaskTimeModel({ id, user_id, task_id, start_time: startTimeFormatted, end_time: endTimeFormatted, duration });
+    const startTimeFormatted = new Date(start_time).toISOString();
+    const endTimeFormatted = new Date(end_time).toISOString();
+
+    await updateTaskTimeModel({
+      id,
+      task_id,
+      user_id,
+      start_time: startTimeFormatted,
+      end_time: endTimeFormatted,
+      duration,
+    });
+
     res.status(200).json({ message: "Task time updated successfully" });
   } catch (error: any) {
+    console.error("Error updating task time:", error.message);
     res.status(500).send(`Error updating task time: ${error.message}`);
   }
 };
@@ -43,11 +63,13 @@ export const updateTaskTimeController = async (req: Request, res: Response) => {
 // Отметить задачу как выполненную
 export const markTaskAsDone = async (req: Request, res: Response) => {
   const { id } = req.params;
+
   try {
-    await connection.query("UPDATE tasks SET is_done = true WHERE id = ?", [id]);
+    await pool.query("UPDATE tasks SET is_done = TRUE WHERE id = $1", [id]);
     res.sendStatus(204);
   } catch (error: any) {
-    res.status(500).send(error.message);
+    console.error("Error marking task as done:", error.message);
+    res.status(500).send(`Error marking task as done: ${error.message}`);
   }
 };
 
@@ -56,11 +78,11 @@ export const deleteTask = async (req: Request, res: Response) => {
   const { id } = req.params;
 
   try {
-    await connection.query("DELETE FROM task_times WHERE task_id = ?", [id]);
-    await connection.query("DELETE FROM tasks WHERE id = ?", [id]);
+    await pool.query("DELETE FROM task_times WHERE task_id = $1", [id]);
+    await pool.query("DELETE FROM tasks WHERE id = $1", [id]);
     res.sendStatus(204);
-  } catch (error) {
-    console.error("Error deleting task:", error);
+  } catch (error: any) {
+    console.error("Error deleting task:", error.message);
     res.status(500).send("Error deleting task");
   }
 };
@@ -70,8 +92,8 @@ export const getTimerStatus = async (req: Request, res: Response) => {
   const { taskId } = req.params;
 
   try {
-    const [rows] = await connection.query<RowDataPacket[]>(
-      "SELECT * FROM task_times WHERE task_id = ? ORDER BY start_time DESC LIMIT 1",
+    const { rows } = await pool.query(
+      "SELECT * FROM task_times WHERE task_id = $1 ORDER BY start_time DESC LIMIT 1",
       [taskId]
     );
 
@@ -95,17 +117,14 @@ export const getTimerStatus = async (req: Request, res: Response) => {
 export const startTimerController = async (req: Request, res: Response) => {
   const { task_id, user_id, start_time } = req.body;
 
-  // Проверка на наличие всех обязательных параметров
   if (!task_id || !user_id || !start_time) {
     return res.status(400).send("Invalid data: Missing required fields");
   }
 
-  // Форматирование времени
-  const startTimeFormatted = new Date(start_time).toISOString().slice(0, 19).replace("T", " ");
-
   try {
-    // Передаём null для end_time
-    await createTaskTime({
+    const startTimeFormatted = new Date(start_time).toISOString();
+
+    await createTaskTimeModel({
       task_id,
       user_id,
       start_time: startTimeFormatted,
@@ -129,13 +148,17 @@ export const updateTimerController = async (req: Request, res: Response) => {
   }
 
   try {
-    await connection.query(
-      "UPDATE task_times SET duration = ?, end_time = ? WHERE task_id = ? AND end_time IS NULL",
-      [elapsed_time, is_running ? null : new Date().toISOString().slice(0, 19).replace("T", " "), task_id]
+    const endTime = is_running ? null : new Date().toISOString();
+    const roundedElapsedTime = Math.round(elapsed_time); // Округляем до целого числа
+    await pool.query(
+      "UPDATE task_times SET duration = $1, end_time = $2 WHERE task_id = $3 AND end_time IS NULL",
+      [roundedElapsedTime, endTime, task_id]
     );
+
     res.status(200).json({ message: "Timer updated successfully" });
   } catch (error: any) {
     console.error("Error updating timer:", error.message);
     res.status(500).send(`Error updating timer: ${error.message}`);
   }
 };
+

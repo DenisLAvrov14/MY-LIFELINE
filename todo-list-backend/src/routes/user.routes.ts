@@ -1,9 +1,8 @@
-import { Router, Request, Response } from 'express';
-import { connection } from '../services/db.connection';
-import { ResultSetHeader } from 'mysql2';
+import { Router, Request, Response } from "express";
+import pool from "../services/db.connection";
 
 export interface User {
-  id?: number;
+  id?: string; // UUID
   username: string;
   email: string;
 }
@@ -11,14 +10,26 @@ export interface User {
 const router = Router();
 
 const createUser = async (req: Request, res: Response): Promise<void> => {
-  const newUser: User = req.body;
-  const query = "INSERT INTO users SET ?";
+  const { username, email } = req.body;
+
+  if (!username || !email) {
+    res.status(400).send("Invalid data: Missing required fields");
+    return;
+  }
+
+  const query = `
+    INSERT INTO users (username, email)
+    VALUES ($1, $2)
+    RETURNING *;
+  `;
+
   try {
-    const [result] = await connection.query<ResultSetHeader>(query, newUser);
-    res.status(201).json({ id: result.insertId, ...newUser });
+    const result = await pool.query(query, [username, email]);
+    const createdUser = result.rows[0]; // Получаем созданного пользователя с UUID
+    res.status(201).json(createdUser);
   } catch (err) {
-    console.error("Error creating user: ", err);
-    res.status(500).send('Error creating user');
+    console.error("Error creating user:", err);
+    res.status(500).send("Error creating user");
   }
 };
 

@@ -8,26 +8,24 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.connectDatabase = exports.connection = void 0;
-const promise_1 = __importDefault(require("mysql2/promise"));
+const pg_1 = require("pg");
 const db_config_1 = require("../config/db.config");
-exports.connection = promise_1.default.createPool({
+exports.connection = new pg_1.Pool({
     host: db_config_1.dbConfig.HOST,
     user: db_config_1.dbConfig.USER,
     password: db_config_1.dbConfig.PASSWORD,
     database: db_config_1.dbConfig.DB,
+    port: db_config_1.dbConfig.PORT,
 });
 const connectDatabase = () => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        yield exports.connection.getConnection();
-        console.log('Successfully connected to the database.');
+        yield exports.connection.connect();
+        console.log('Successfully connected to the PostgreSQL database.');
     }
     catch (error) {
-        console.error('Error connecting to the database:', error);
+        console.error('Error connecting to the PostgreSQL database:', error);
         throw error;
     }
 });

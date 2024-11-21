@@ -61,7 +61,7 @@ export const createTask = async (description: string) => {
   }
 };
 
-export const createTaskTime = async (taskId: number, userId: number | null, startTime: Date, endTime: Date, duration: number) => {
+export const createTaskTime = async (taskId: number, userId: string | null, startTime: Date, endTime: Date, duration: number) => {
   const startTimeFormatted = startTime.toISOString().slice(0, 19).replace('T', ' ');
   const endTimeFormatted = endTime.toISOString().slice(0, 19).replace('T', ' ');
 
@@ -81,7 +81,7 @@ export const createTaskTime = async (taskId: number, userId: number | null, star
 };
 
 
-export const getTaskTimes = async (userId: number) => {
+export const getTaskTimes = async (userId: string) => {
   try {
     const response = await axios.get(`${API_URL}/task-times/${userId}`);
     return response.data;
@@ -101,27 +101,34 @@ export const taskIsDone = async (taskId: string) => {
   }
 };
 
-export const saveTaskTime = async (taskId: string, userId: number, startTime: Date, endTime: Date, duration: number) => {
+export const saveTaskTime = async (
+  taskId: string,
+  userId: string,
+  startTime: Date,
+  endTime: Date,
+  duration: number
+) => {
   try {
-    const response = await axios.post(`${API_URL}/task-times`, {
-      task_id: taskId,
-      user_id: userId,
-      start_time: startTime.toISOString(),
-      end_time: endTime.toISOString(),
-      duration
-    });
-    return response.data;
+      const response = await axios.post(`${API_URL}/task-times`, {
+          task_id: taskId,
+          user_id: userId,
+          start_time: startTime.toISOString(),
+          end_time: endTime.toISOString(),
+          duration: Math.round(duration), 
+      });
+      return response.data;
   } catch (error) {
-    console.error('Error saving task time:', error);
-    throw error;
+      console.error("Error saving task time:", error);
+      throw error;
   }
 };
+
 
 export const startTimer = async (taskId: string, startTime: Date) => {
   try {
     const response = await axios.post(`${API_URL}/timer/start`, {
       task_id: taskId,
-      user_id: 1, // Временно добавляем user_id
+      user_id: "00000000-0000-0000-0000-000000000001",
       start_time: startTime.toISOString(),
     });
     return response.data;
@@ -134,11 +141,15 @@ export const startTimer = async (taskId: string, startTime: Date) => {
 
 export const updateTimer = async (taskId: string, elapsedTime: number, isRunning: boolean) => {
   try {
-    const response = await axios.post(`${API_URL}/timer/update`, { task_id: taskId, elapsed_time: elapsedTime, is_running: isRunning });
-    return response.data;
+      const response = await axios.post(`${API_URL}/timer/update`, {
+          task_id: taskId,
+          elapsed_time: Math.round(elapsedTime), // Округляем до целого числа
+          is_running: isRunning,
+      });
+      return response.data;
   } catch (error) {
-    console.error('Error updating timer:', error);
-    throw error;
+      console.error('Error updating timer:', error);
+      throw error;
   }
 };
 

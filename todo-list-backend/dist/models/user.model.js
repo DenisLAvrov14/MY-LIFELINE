@@ -8,17 +8,25 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createUser = void 0;
-const db_connection_1 = require("../services/db.connection");
+const db_connection_1 = __importDefault(require("../services/db.connection"));
+// Создание пользователя
 const createUser = (newUser) => __awaiter(void 0, void 0, void 0, function* () {
-    const query = "INSERT INTO users SET ?";
+    const query = `
+    INSERT INTO users (username, email)
+    VALUES ($1, $2)
+    RETURNING *;
+  `;
     try {
-        const [result] = yield db_connection_1.connection.query(query, newUser);
-        return Object.assign({ id: result.insertId }, newUser);
+        const result = yield db_connection_1.default.query(query, [newUser.username, newUser.email]);
+        return result.rows[0]; // Возвращаем созданного пользователя, включая UUID
     }
     catch (err) {
-        console.error("Error creating user: ", err);
+        console.error("Error creating user:", err);
         throw err;
     }
 });

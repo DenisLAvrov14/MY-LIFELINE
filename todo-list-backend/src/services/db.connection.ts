@@ -1,19 +1,20 @@
-import mysql from 'mysql2/promise';
+import { Pool } from 'pg';
 import { dbConfig } from '../config/db.config';
 
-export const connection = mysql.createPool({
+export const connection = new Pool({
   host: dbConfig.HOST,
   user: dbConfig.USER,
   password: dbConfig.PASSWORD,
   database: dbConfig.DB,
+  port: dbConfig.PORT,
 });
 
 export const connectDatabase = async () => {
   try {
-    await connection.getConnection();
-    console.log('Successfully connected to the database.');
+    await connection.connect();
+    console.log('Successfully connected to the PostgreSQL database.');
   } catch (error) {
-    console.error('Error connecting to the database:', error);
+    console.error('Error connecting to the PostgreSQL database:', error);
     throw error;
   }
 };
