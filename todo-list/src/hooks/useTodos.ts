@@ -6,6 +6,7 @@ export const useTodos = () => {
     queryKey: ["todos"],
     queryFn: todosService.getTodos,
     select: (data) => data,
+    staleTime: 0, // Помечаем данные как устаревшие сразу после изменения
     retry: 2,
   });
 };

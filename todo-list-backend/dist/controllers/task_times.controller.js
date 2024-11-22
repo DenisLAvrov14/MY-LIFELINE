@@ -25,7 +25,7 @@ const createTaskTimeController = (req, res) => __awaiter(void 0, void 0, void 0,
     try {
         const startTimeFormatted = new Date(start_time).toISOString();
         const endTimeFormatted = end_time ? new Date(end_time).toISOString() : null;
-        const roundedDuration = Math.round(duration); // Округляем до целого числа
+        const roundedDuration = Math.round(duration);
         yield (0, task_times_model_1.createTaskTime)({
             task_id,
             user_id,
@@ -67,12 +67,15 @@ exports.updateTaskTimeController = updateTaskTimeController;
 const markTaskAsDone = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
     try {
-        yield db_connection_1.default.query("UPDATE tasks SET is_done = TRUE WHERE id = $1", [id]);
-        res.sendStatus(204);
+        const result = yield db_connection_1.default.query(`UPDATE tasks SET "isDone" = TRUE WHERE id = $1 RETURNING id, description, "isDone", created_at AS "createdAt"`, [id]);
+        if (result.rowCount === 0) {
+            return res.status(404).json({ success: false, message: "Task not found" });
+        }
+        res.status(200).json({ success: true, task: result.rows[0] });
     }
     catch (error) {
         console.error("Error marking task as done:", error.message);
-        res.status(500).send(`Error marking task as done: ${error.message}`);
+        res.status(500).json({ success: false, message: `Error marking task as done: ${error.message}` });
     }
 });
 exports.markTaskAsDone = markTaskAsDone;
@@ -115,7 +118,10 @@ exports.getTimerStatus = getTimerStatus;
 const startTimerController = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { task_id, user_id, start_time } = req.body;
     if (!task_id || !user_id || !start_time) {
-        return res.status(400).send("Invalid data: Missing required fields");
+        return res.status(400).json({
+            success: false,
+            message: "Invalid data: Missing required fields",
+        });
     }
     try {
         const startTimeFormatted = new Date(start_time).toISOString();
@@ -126,11 +132,23 @@ const startTimerController = (req, res) => __awaiter(void 0, void 0, void 0, fun
             end_time: null,
             duration: 0,
         });
-        res.status(201).json({ message: "Timer started successfully" });
+        res.status(201).json({
+            success: true,
+            message: "Timer started successfully",
+            data: {
+                task_id,
+                user_id,
+                start_time: startTimeFormatted,
+            },
+        });
     }
     catch (error) {
         console.error("Error starting timer:", error.message);
-        res.status(500).send(`Error starting timer: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: "Error starting timer",
+            error: error.message,
+        });
     }
 });
 exports.startTimerController = startTimerController;
@@ -142,8 +160,8 @@ const updateTimerController = (req, res) => __awaiter(void 0, void 0, void 0, fu
     }
     try {
         const endTime = is_running ? null : new Date().toISOString();
-        const roundedElapsedTime = Math.round(elapsed_time); // Округляем до целого числа
-        yield db_connection_1.default.query("UPDATE task_times SET duration = $1, end_time = $2 WHERE task_id = $3 AND end_time IS NULL", [roundedElapsedTime, endTime, task_id]);
+        const roundedElapsedTime = Math.round(elapsed_time);
+        yield db_connection_1.default.query(`UPDATE task_times SET duration = $1, end_time = $2 WHERE task_id = $3 AND end_time IS NULL`, [roundedElapsedTime, endTime, task_id]);
         res.status(200).json({ message: "Timer updated successfully" });
     }
     catch (error) {

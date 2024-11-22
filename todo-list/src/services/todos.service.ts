@@ -53,13 +53,17 @@ export const createUser = async (username: string, email: string) => {
 
 export const createTask = async (description: string) => {
   try {
-    const response = await axios.post(`${API_URL}/tasks`, { description });
+    const response = await axios.post(`${API_URL}/tasks`, {
+      description,
+      is_done: false,
+    });
     return response.data;
   } catch (error) {
-    console.error('Error creating task:', error);
+    console.error("Error creating task:", error);
     throw error;
   }
 };
+
 
 export const createTaskTime = async (taskId: number, userId: string | null, startTime: Date, endTime: Date, duration: number) => {
   const startTimeFormatted = startTime.toISOString().slice(0, 19).replace('T', ' ');
@@ -93,10 +97,12 @@ export const getTaskTimes = async (userId: string) => {
 
 export const taskIsDone = async (taskId: string) => {
   try {
-    const response = await axios.put(`${API_URL}/tasks/${taskId}/done`);
+    const response = await axios.put(`${API_URL}/tasks/${taskId}/done`, {
+      is_done: true, 
+    });
     return response.data;
   } catch (error) {
-    console.error('Error marking task as done:', error);
+    console.error("Error marking task as done:", error);
     throw error;
   }
 };

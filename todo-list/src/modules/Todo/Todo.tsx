@@ -13,28 +13,29 @@ const Todo: React.FC = () => {
 
     // Фильтрация задач на основе текущего значения фильтра из Redux
     const filteredData = useMemo(() => {
-        if (queryData) {
-            console.log("Filter applied:", filter);
-            console.log("Data before filtering:", queryData);
+        if (!queryData) return [];
+      
+        console.log("Filter applied:", filter);
+        console.log("Data before filtering:", queryData);
+        console.log("Data from useTodos (queryData):", queryData);
 
-            switch (filter) {
-                case "all":
-                    return queryData;
-                case "done":
-                    const doneTasks = queryData.filter((task: Task) => task.isDone);
-                    console.log("Done tasks:", doneTasks);
-                    return doneTasks;
-                case "undone":
-                    const undoneTasks = queryData.filter((task: Task) => !task.isDone);
-                    console.log("Undone tasks:", undoneTasks);
-                    return undoneTasks;
-                default:
-                    return [];
-            }
+        switch (filter) {
+          case "all":
+            return queryData;
+          case "done":
+            const doneTasks = queryData.filter((task: Task) => task.isDone === true);
+            console.log("Done tasks:", doneTasks);
+            return doneTasks;
+          case "undone":
+            const undoneTasks = queryData.filter((task: Task) => task.isDone === false);
+            console.log("Undone tasks:", undoneTasks);
+            return undoneTasks;
+          default:
+            return [];
         }
-        return [];
-    }, [filter, queryData]);
-
+        
+      }, [filter, queryData]);  
+ 
     return (
         <>
             <CreateTask />

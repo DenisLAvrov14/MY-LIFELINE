@@ -14,12 +14,16 @@ export const getTodos = async (req: Request, res: Response) => {
 
 // Создание новой задачи (Todo)
 export const createTodo = async (req: Request, res: Response) => {
-  const { description, is_done } = req.body;
+  const { description, is_done = false } = req.body; // Устанавливаем значение по умолчанию для is_done
+
   try {
     const result = await pool.query(
-      "INSERT INTO tasks (description, is_done) VALUES ($1, $2) RETURNING *",
+      `INSERT INTO tasks (description, is_done) 
+       VALUES ($1, $2) 
+       RETURNING id, description, is_done AS "isDone", created_at AS "createdAt"`,
       [description, is_done]
     );
+
     res.status(201).json(result.rows[0]);
   } catch (error: any) {
     console.error("Error creating todo:", error.message);
@@ -36,12 +40,18 @@ export const updateTodo = async (req: Request, res: Response) => {
 
   try {
     const result = await pool.query(
-      "UPDATE tasks SET description = $1, is_done = $2 WHERE id = $3 RETURNING *",
+      `UPDATE tasks 
+       SET description = $1, is_done = $2 
+       WHERE id = $3 
+       RETURNING id, description, is_done AS "isDone", created_at AS "createdAt"`,
       [description, is_done, id]
     );
 
-    console.log("Update result:", result.rows[0]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: "Todo not found" });
+    }
 
+    console.log("Update result:", result.rows[0]);
     res.status(200).json(result.rows[0]);
   } catch (error: any) {
     console.error("Error updating todo:", error.message);

@@ -8,8 +8,8 @@ import Todo from '../../modules/Todo/Todo';
 const tabs = [
     { label: 'Todo', icon: '✅', component: <Todo /> },
     { label: 'Statistic', icon: '📊', component: <Statistic /> },
-    { label: 'Map', icon: '🗺️', component: <></>},
-    { label: 'Social', icon: '👥', component: <></> }
+    // { label: 'Map', icon: '🗺️', component: <></>},
+    // { label: 'Social', icon: '👥', component: <></> }
 ];
 
 const Navbar = () => {

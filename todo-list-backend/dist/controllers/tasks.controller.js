@@ -17,7 +17,7 @@ const db_connection_1 = __importDefault(require("../services/db.connection"));
 // Получение всех задач
 const getTasks = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const result = yield db_connection_1.default.query("SELECT * FROM tasks");
+        const result = yield db_connection_1.default.query(`SELECT id, description, "isDone", created_at AS "createdAt" FROM tasks`);
         res.json(result.rows);
     }
     catch (error) {
@@ -28,9 +28,9 @@ const getTasks = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
 exports.getTasks = getTasks;
 // Создание новой задачи
 const createTask = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const { description, is_done } = req.body;
+    const { description, isDone = false } = req.body;
     try {
-        const result = yield db_connection_1.default.query("INSERT INTO tasks (description, is_done) VALUES ($1, $2) RETURNING *", [description, is_done]);
+        const result = yield db_connection_1.default.query(`INSERT INTO tasks (description, "isDone") VALUES ($1, $2) RETURNING id, description, "isDone", created_at AS "createdAt"`, [description, isDone]);
         res.status(201).json(result.rows[0]);
     }
     catch (error) {
@@ -42,12 +42,20 @@ exports.createTask = createTask;
 // Обновление задачи
 const updateTask = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
-    const { description, is_done } = req.body;
+    const { description, isDone } = req.body;
+    if (description === undefined || isDone === undefined) {
+        return res
+            .status(400)
+            .json({ message: "Invalid data: description and isDone are required" });
+    }
     console.log(`Updating task with ID: ${id}`);
     console.log(`New description: ${description}`);
-    console.log(`New is_done status: ${is_done}`);
+    console.log(`New isDone status: ${isDone}`);
     try {
-        const result = yield db_connection_1.default.query("UPDATE tasks SET description = $1, is_done = $2 WHERE id = $3 RETURNING *", [description, is_done, id]);
+        const result = yield db_connection_1.default.query(`UPDATE tasks SET description = $1, "isDone" = $2 WHERE id = $3 RETURNING id, description, "isDone", created_at AS "createdAt"`, [description, isDone, id]);
+        if (result.rowCount === 0) {
+            return res.status(404).json({ message: "Task not found" });
+        }
         console.log(`Update result:`, result.rows[0]);
         res.status(200).json(result.rows[0]);
     }
@@ -61,7 +69,10 @@ exports.updateTask = updateTask;
 const deleteTask = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
     try {
-        yield db_connection_1.default.query("DELETE FROM tasks WHERE id = $1", [id]);
+        const result = yield db_connection_1.default.query("DELETE FROM tasks WHERE id = $1", [id]);
+        if (result.rowCount === 0) {
+            return res.status(404).json({ message: "Task not found" });
+        }
         res.sendStatus(204);
     }
     catch (error) {
@@ -74,8 +85,13 @@ exports.deleteTask = deleteTask;
 const markTaskAsDone = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
     try {
-        const result = yield db_connection_1.default.query("UPDATE tasks SET is_done = true WHERE id = $1 RETURNING *", [id]);
-        res.status(200).json({ message: "Task marked as done", task: result.rows[0] });
+        const result = yield db_connection_1.default.query(`UPDATE tasks SET "isDone" = true WHERE id = $1 RETURNING id, description, "isDone", created_at AS "createdAt"`, [id]);
+        if (result.rowCount === 0) {
+            return res.status(404).json({ message: "Task not found" });
+        }
+        res
+            .status(200)
+            .json({ message: "Task marked as done", task: result.rows[0] });
     }
     catch (error) {
         console.error("Error marking task as done:", error.message);

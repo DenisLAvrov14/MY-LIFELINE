@@ -91,44 +91,66 @@ const TaskDeck: React.FC<Props> = (props) => {
         setInputEdit(e.target.value);
     }, []);
 
-    const handleIsDone = useCallback(
+    const handleStartTimer = useCallback(
         async () => {
-            setIsTimerVisible(true);
-            setTimerStarted(true);
-            setCursorPointer(true);
-            const now = new Date();
-            setStartTime(now);
-            setIsRunning(true);
-            setTime(0);
-            await todosService.startTimer(taskId, now);
+            try {
+                const now = new Date();
+    
+                console.log("Starting timer for task:", { taskId, now });
+    
+                const response = await todosService.startTimer(taskId, now);
+    
+                console.log("Server response:", response);
+    
+                if (response.success) {
+                    // Если сервер подтвердил запуск таймера
+                    setIsTimerVisible(true);
+                    setTimerStarted(true);
+                    setCursorPointer(true);
+                    setStartTime(now);
+                    setIsRunning(true);
+                    setTime(0);
+                    console.log("Timer started for task:", taskId);
+                } else {
+                    throw new Error(response.message || "Failed to start timer on the server.");
+                }
+            } catch (error) {
+                console.error("Error starting timer:", error);
+                alert("Failed to start timer. Please try again.");
+            }
         },
         [taskId]
-    );
-
+    );    
+    
     const saveTime = (taskId: string, startTime: Date, endTime: Date, duration: number) => {
         mutationSaveTime.mutate({ taskId, userId, startTime, endTime, duration });
     };
           
     const handleStopAndMarkAsDone = async () => {
         try {
-          setIsRunning(false);
-          const endTime = new Date();
-          const duration = startTime
-            ? Math.round((endTime.getTime() - startTime.getTime()) / 1000) 
-            : 0;
-      
-          if (startTime) {
-            await todosService.saveTaskTime(taskId, userId, startTime, endTime, duration);
-          }
-      
-          await todosService.taskIsDone(taskId);
-          alert("Task has been marked as done successfully!");
+            setIsRunning(false);
+            const endTime = new Date();
+            const duration = startTime
+                ? Math.round((endTime.getTime() - startTime.getTime()) / 1000)
+                : 0;
+    
+            // Сохраняем время выполнения задачи
+            if (startTime) {
+                await todosService.saveTaskTime(taskId, userId, startTime, endTime, duration);
+            }
+    
+            // Обновляем статус задачи
+            await todosService.taskIsDone(taskId);
+    
+            // Инвалидируем кэш, чтобы обновить данные
+            queryClient.invalidateQueries({ queryKey: ["todos"] });
+    
+            alert("Task has been marked as done successfully!");
         } catch (error) {
-          console.error("Error stopping and marking task as done:", error);
-          alert("Failed to stop timer and mark task as done. Please try again.");
+            console.error("Error stopping and marking task as done:", error);
+            alert("Failed to stop timer and mark task as done. Please try again.");
         }
-      };
-      
+    };
    
     const handleReset = () => {
         setIsTimerVisible(false);
@@ -218,7 +240,7 @@ const TaskDeck: React.FC<Props> = (props) => {
 
         return (
             <>
-                <IconButton onClick={handleIsDone}>
+                <IconButton onClick={handleStartTimer}>
                     <BiTimer title="Start" />
                 </IconButton>
                 <IconButton onClick={handleEdit}>
@@ -252,3 +274,4 @@ const TaskDeck: React.FC<Props> = (props) => {
 };
 
 export default TaskDeck;
+
